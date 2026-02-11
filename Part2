@@ -1,0 +1,106 @@
+package main
+
+//HW1
+//William Quinterogomez
+//Katrina Wong
+// --GoRoutines--
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+
+
+// method called producer
+// parameters:
+// creates a channel called nums of int type: transport valued from producer to consumer( acts as pipes)
+// channel called ack empty value stuct type: purpose to send signal to consumer and return to producer before continuing to next value
+// waitgroup pointer called wg: used to allow other goroutines to run before allow main() to terminate program.
+func producer(nums chan<- int, ack <-chan struct{}, wg *sync.WaitGroup) {
+
+
+
+
+	// Tell main() this goroutine is finished when function returns
+	defer wg.Done() 
+
+	// Generate numbers 1 through 5
+	for i := 1; i <= 5; i++ {
+
+		// Prints producer output
+		fmt.Printf("Producer: %d\n", i)
+
+		// Send the number to the consumer through the nums channel
+		nums <- i
+		
+		// Holds continuation of for loop
+		<-ack
+	}
+
+	// Close nums channel to signal consumer that producer is done
+	close(nums)
+}
+
+
+// method called consumer
+// parameters:
+// creates a channel called nums of int type: transport valued from producer to consumer( acts as pipes)
+// channel called ack empty value stuct type: purpose to send signal to consumer and return to producer before continuing to next value
+// waitgroup pointer called wg: used to allow other goroutines to run before allow main() to terminate program.
+func consumer(nums <-chan int, ack chan<- struct{}, wg *sync.WaitGroup) {
+	defer wg.Done() // Notify main() when consumer finishes
+
+	// Loop continues until nums channel is closed
+	for n := range nums {
+
+		// Print consumer output
+		fmt.Printf("Consumer: %d\n", n)
+
+		// Send acknowledgement back to producer.
+		
+		ack <- struct{}{}
+	}
+
+	// Close ack channel after producer finishes
+	close(ack)
+}
+
+func main() {
+	//Start timer
+	start := time.Now()
+
+	
+	//Create channel to transfer numbers from producer to consumer.
+	//This replaces OS pipes and IPC.
+	
+	nums := make(chan int)
+
+	
+	//Acknowledgement channel used for synchronization.
+	//Consumer sends signal after printing.
+	//Producer waits for it before continuing.
+	
+	ack := make(chan struct{})
+
+	
+	//WaitGroup allows main() to wait for both goroutines to finish
+	//before exiting the program.
+	
+	var wg sync.WaitGroup
+	wg.Add(2) // calls for two goroutines: producer + consumer
+
+	// Start producer as goroutine 
+	go producer(nums, ack, &wg)
+
+	// Start consumer as goroutine
+	go consumer(nums, ack, &wg)
+
+	// Block main() until both goroutines finish
+	wg.Wait()
+
+	//Stop timer and print time
+	elapsed := time.Since(start)
+	fmt.Println("Elapsed time:", elapsed)
+}
